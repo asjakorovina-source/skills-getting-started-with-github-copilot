@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Mergington Activities WebApp",
+			"type": "shell",
+			"command": "/usr/local/bin/python",
+			"args": [
+				"-m",
+				"uvicorn",
+				"src.app:app",
+				"--host",
+				"0.0.0.0",
+				"--port",
+				"8000",
+				"--reload",
+				"--reload-include",
+				"src/static/\\*"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}
