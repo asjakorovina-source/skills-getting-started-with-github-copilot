@@ -7,11 +7,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
-      const response = await fetch("/activities");
+      const response = await fetch("/activities", { cache: "no-store" });
       const activities = await response.json();
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.replaceChildren(activitySelect.options[0]);
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -19,13 +20,97 @@ document.addEventListener("DOMContentLoaded", () => {
         activityCard.className = "activity-card";
 
         const spotsLeft = details.max_participants - details.participants.length;
+        const title = document.createElement("h4");
+        title.textContent = name;
+        activityCard.appendChild(title);
 
-        activityCard.innerHTML = `
-          <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
-        `;
+        const description = document.createElement("p");
+        description.className = "activity-description";
+        description.textContent = details.description;
+        activityCard.appendChild(description);
+
+        const schedule = document.createElement("p");
+        schedule.className = "activity-detail";
+        const scheduleLabel = document.createElement("strong");
+        scheduleLabel.textContent = "Schedule:";
+        schedule.append(scheduleLabel, ` ${details.schedule}`);
+        activityCard.appendChild(schedule);
+
+        const availability = document.createElement("p");
+        availability.className = "activity-detail";
+        const availabilityLabel = document.createElement("strong");
+        availabilityLabel.textContent = "Availability:";
+        availability.append(availabilityLabel, ` ${spotsLeft} spots left`);
+        activityCard.appendChild(availability);
+
+        const participantsSection = document.createElement("div");
+        participantsSection.className = "participants-section";
+        const participantsHeading = document.createElement("h5");
+        participantsHeading.textContent = `Participants (${details.participants.length})`;
+        participantsSection.appendChild(participantsHeading);
+
+        const participantsList = document.createElement("ul");
+        participantsList.className = "participants-list";
+        details.participants.forEach((participant) => {
+          const listItem = document.createElement("li");
+
+          const participantEmail = document.createElement("span");
+          participantEmail.textContent = participant;
+          listItem.appendChild(participantEmail);
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "delete-participant";
+          deleteButton.type = "button";
+          deleteButton.setAttribute("aria-label", `Unregister ${participant} from ${name}`);
+          deleteButton.title = "Unregister participant";
+
+          const deleteIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          deleteIcon.setAttribute("viewBox", "0 0 24 24");
+          deleteIcon.setAttribute("aria-hidden", "true");
+          const deletePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          deletePath.setAttribute(
+            "d",
+            "M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"
+          );
+          deletePath.setAttribute("fill", "none");
+          deletePath.setAttribute("stroke", "currentColor");
+          deletePath.setAttribute("stroke-width", "2");
+          deletePath.setAttribute("stroke-linecap", "round");
+          deletePath.setAttribute("stroke-linejoin", "round");
+          deleteIcon.appendChild(deletePath);
+          deleteButton.appendChild(deleteIcon);
+
+          deleteButton.addEventListener("click", async () => {
+            deleteButton.disabled = true;
+            try {
+              const response = await fetch(
+                `/activities/${encodeURIComponent(name)}/signup?email=${encodeURIComponent(participant)}`,
+                { method: "DELETE" }
+              );
+              const result = await response.json();
+
+              if (!response.ok) {
+                throw new Error(result.detail || "Failed to unregister participant");
+              }
+
+              messageDiv.textContent = result.message;
+              messageDiv.className = "success";
+              messageDiv.classList.remove("hidden");
+              await fetchActivities();
+            } catch (error) {
+              messageDiv.textContent = error.message || "Failed to unregister participant.";
+              messageDiv.className = "error";
+              messageDiv.classList.remove("hidden");
+              deleteButton.disabled = false;
+              console.error("Error unregistering participant:", error);
+            }
+          });
+
+          listItem.appendChild(deleteButton);
+          participantsList.appendChild(listItem);
+        });
+        participantsSection.appendChild(participantsList);
+        activityCard.appendChild(participantsSection);
 
         activitiesList.appendChild(activityCard);
 
@@ -62,6 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
